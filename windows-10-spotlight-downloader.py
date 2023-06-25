@@ -41,7 +41,7 @@ class Windows10SpotlightDownloader:
         if isinstance(p_args_parsed.page_number, str):
             self.page_number = int(p_args_parsed.page_number)
 
-    def __download_spotlight_image(self, href_link: str) -> None:
+    def __download_spotlight_image(self, href_link: str, description: str) -> None:
         """
         Downloads the spotlight image into the spotlight_images_location directory.
         :param: The download URL.
@@ -50,14 +50,18 @@ class Windows10SpotlightDownloader:
         """
         posted_year = href_link.split('/')[5]
         posted_month = href_link.split('/')[6]
-        hash_name = href_link.split('/')[7]
-        file_url = "https://windows10spotlight.com/wp-content/uploads/" + posted_year + "/" + posted_month + "/" + hash_name
+        hash_name = href_link.split('/')[7].split('.')[0]
+        extension = href_link.split('/')[7].split('.')[1]
+        normalized_description = description.replace(" / ", ", ")
+        normalized_description = normalized_description.replace('/', ',')
+        normalized_description = "".join([c for c in normalized_description if c.isalpha() or c.isdigit() or c==' ' or c==',' or c=='(' or c==')']).rstrip()
+        file_url = "https://windows10spotlight.com/wp-content/uploads/" + posted_year + "/" + posted_month + "/" + hash_name + "." + extension
         if self.no_download:
             print(file_url)
         else:
             request = urllib.request.Request(file_url, headers=self.user_agent_header)
             file_data = urllib.request.urlopen(request)
-            jpg_file_name = posted_year + '-' + posted_month + '-' + hash_name
+            jpg_file_name = posted_year + '-' + posted_month + '-' + hash_name + '-' + normalized_description + "." + extension
             full_file_path = os.path.join(self.output_directory, jpg_file_name)
 
             # The file exists and is not empty, and we just want an update = exit program
@@ -126,12 +130,15 @@ class Windows10SpotlightDownloader:
                 #   2) We are on a "images" page (e.g https://windows10spotlight.com/images/a7fb8314253bb986d7f4676a324d2c25)
                 #      ==> We do not have "h2" HTML tag
                 elif len(soup.find_all('h2')) == 3:
+                    for h1_tag in soup.find_all('h1'):
+                        description = h1_tag.contents[0]
+                        break
                     try:
                         a = soup.find('figure')
-                        self.__download_spotlight_image(soup.find('figure').contents[0]['href'])
+                        self.__download_spotlight_image(soup.find('figure').contents[0]['href'], description)
                     except AttributeError:
                         b = soup.find('img')
-                        self.__download_spotlight_image(soup.find('img').attrs['src'])
+                        self.__download_spotlight_image(soup.find('img').attrs['src'], description)
 
 
 parser = argparse.ArgumentParser(
